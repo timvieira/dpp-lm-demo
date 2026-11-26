@@ -36,4 +36,6 @@ jobs:
           git add data/ensemble/*.json
           git diff --cached --quiet && { echo "nothing new"; exit 0; }
           git commit -m "Ensemble prototype: Qwen3 14B pools from Modal (${{ inputs.only || 'all presets' }})"
-          git push
+          # main may have moved while the GPU ran; the pools touch only data/ensemble/*.json, so rebase and push.
+          for i in 1 2 3; do git pull --rebase origin "${GITHUB_REF_NAME}" && git push && exit 0; sleep 5; done
+          exit 1
