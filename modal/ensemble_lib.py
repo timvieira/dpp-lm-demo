@@ -30,10 +30,18 @@ def prompt_ids(tok, prompt, chat=False, chat_kw=None):
 
 
 def _eos_ids(tok, model):
+    """The tokens that end a completion whatever the text: every special or added token of the tokenizer.
+    For Qwen3: <|im_end|> (the normal end of a reply), <|endoftext|>, <|im_start|> (a new turn: the reply is
+    over even if the model skipped <|im_end|>), <think>/</think>, tool-call, vision and fill-in-the-middle tokens.
+    A completion is then ordinary text only, so the text shown is exactly the tokens scored, and its score
+    includes the probability that some special token comes next. Nothing is blocked or thrown away, which would
+    change the model's distribution."""
     ids = model.generation_config.eos_token_id
     ids = ids if isinstance(ids, (list, tuple)) else [ids]
     ids = [i for i in ids if i is not None] + ([tok.eos_token_id] if tok.eos_token_id is not None else [])
-    return sorted(set(int(i) for i in ids))
+    ids += list(tok.all_special_ids) + [int(i) for i in getattr(tok, "added_tokens_decoder", {})]
+    V = model.get_output_embeddings().weight.shape[0]
+    return sorted(set(int(i) for i in ids if 0 <= int(i) < V))
 
 
 # ---------------------------------------------------------------- where a completion ends
@@ -148,6 +156,7 @@ def ensemble_sample(tok, model, A, B, n, t_prime=1.0, max_new_tokens=32, seed=0,
             acc = {k: torch.zeros(Bn, dtype=torch.float64) for k in ("A", "B", "r", "local")}
             # Text: the sentence rules above. Chat: a reply ends where the model ends its turn.
             done, kind, end = [False] * Bn, ["eos" if chat else "line"] * Bn, ["max"] * Bn
+            end_tok = [None] * Bn                                        # the special token that ended it, if any
             seqs = [[] for _ in range(Bn)]
             pa = pb = None
             sa, sb = ia.repeat(Bn, 1), ib.repeat(Bn, 1)
@@ -175,6 +184,8 @@ def ensemble_sample(tok, model, A, B, n, t_prime=1.0, max_new_tokens=32, seed=0,
                         for k in acc:
                             acc[k][b] += endp[kind[b]][k][b]
                         done[b], end[b] = True, kind[b]
+                        if nl[b] in eos_set:
+                            end_tok[b] = tok.convert_ids_to_tokens(nl[b])
                         continue
                     if len(seqs[b]) >= max_new_tokens:
                         done[b] = True                                   # cut off ("max")
@@ -197,7 +208,7 @@ def ensemble_sample(tok, model, A, B, n, t_prime=1.0, max_new_tokens=32, seed=0,
                     "ids": seqs[b], "endKind": end[b] if end[b] in KINDS else None,
                     "text": _cut_line(text) if end[b] == "token" else text,
                     "logpA": acc["A"][b], "logpB": acc["B"][b], "logr": acc["r"][b], "loglocal": acc["local"][b],
-                    "nTokens": len(seqs[b]), "ended": end[b] != "max",
+                    "nTokens": len(seqs[b]), "ended": end[b] != "max", "endToken": end_tok[b],
                     "end": {"any": "sentence", "upper": "sentence", "nodigit": "sentence", "line": "line",
                             "token": "line", "eos": "eos", "max": "max"}[end[b]],
                 })

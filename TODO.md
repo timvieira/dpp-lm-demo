@@ -95,6 +95,11 @@ Full notes: docs/matrix-views.md (the views, the kernel / eigendecomposition / P
   prompts are user messages in the chat template, reasoning off; a reply ends at the end-of-turn token). Each
   example pair has both phrasings (data/ensemble/presets.json); pools are data/ensemble/<id>.<text|chat>.json.
   A chat model is still a language model: raw continuation is valid, just a different distribution.
+- Decided (Tim): any special or added token ends a completion, in both formats (Qwen3: <|im_end|>,
+  <|endoftext|>, <|im_start|>, <think>, tool-call, vision, FIM tokens: 26 in all). The ending set's probability is
+  in every score; nothing is blocked or dropped. Each completion records which special token ended it
+  (endToken), to spot e.g. replies that run into <|im_start|>. Before, only <|im_end|>/<|endoftext|> ended one
+  and other special tokens were kept but hidden by decoding.
 - Next: a live route on Modal (/ensemble_sample) so ↑ can run new pairs.
 
 ## Run log and shared cache (for us, not a visitor feature)
