@@ -87,6 +87,9 @@ Full notes: docs/matrix-views.md (the views, the kernel / eigendecomposition / P
   before a digit; titles, initials, e.g., i.e. never; a new line always ends a completion; closing quotes count.
   Exact except tokens holding text plus a line break (".\n"), scored by their own probability. Not adopted:
   pySBD's list items, file extensions, coordinates and its everyday-word abbreviations (is, me, man, may, …).
+- Decided (Tim): no in-browser models (GPT-2 in Transformers.js was considered). Design for a phone: one
+  WebAssembly thread on GitHub Pages, roughly 3–5 min per pool at N = 200, and exact weights too big to download.
+  Cached pools for the examples, and live runs on a server.
 - Next: a live route on Modal (/ensemble_sample) so ↑ can run new pairs.
 
 ## Run log and shared cache (for us, not a visitor feature)
