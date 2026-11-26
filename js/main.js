@@ -1082,7 +1082,7 @@ function wire() {
   $('#model').addEventListener('change', onSettings);
   $('#embedder').addEventListener('change', onSettings);
   ['#live-N', '#live-Tp', '#live-max'].forEach((id) => $(id).addEventListener('change', onSettings));
-  // The target quality is part of κ, like T: it reweights the same completions, so it sits with T and K.
+  // The target quality is part of κ, like T (it reweights the same completions); an advanced choice, in the View menu.
   $('#target').innerHTML = Object.entries(TARGETS).map(([k, t]) => `<button type="button" class="pick-btn" data-target="${k}" aria-pressed="${k === S.target}">${t.short}</button>`).join('');
   $('#target').querySelectorAll('.pick-btn').forEach((b) => (b.onclick = () => {
     S.target = b.dataset.target;

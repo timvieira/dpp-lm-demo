@@ -114,11 +114,6 @@
           <button type="button" class="pick-btn" data-mode="sample" aria-pressed="false">Sample</button>
         </span><button type="button" class="xbtn" data-x="subset" aria-label="How is the subset chosen?">?</button></span>
       </div>
-      <div class="mode-row">
-        <span class="lab tgt-lab" id="target-lab">Target</span>
-        <span class="grow"></span>
-        <span class="fn"><span class="pick" id="target" role="group" aria-labelledby="target-lab"></span><button type="button" class="xbtn" data-x="target" aria-label="What is the target quality?">?</button></span>
-      </div>
     </section>
   </div>
 
@@ -147,6 +142,8 @@
           <summary>View</summary>
           <div class="menu">
             <label class="toggle"><input type="checkbox" id="label-toggle" checked><span>Label selected points</span></label>
+            <!-- Advanced: the target quality reweights the same completions, like T. -->
+            <div class="menu-field"><span class="lab" id="target-lab">Target quality<button type="button" class="xbtn" data-x="target" aria-label="What is the target quality?">?</button></span><span class="pick" id="target" role="group" aria-labelledby="target-lab"></span></div>
           </div>
         </details>
       </div>
