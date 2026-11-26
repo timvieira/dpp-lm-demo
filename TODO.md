@@ -78,6 +78,12 @@ Full notes: docs/matrix-views.md (the views, the kernel / eigendecomposition / P
   sentence when the next token starts with whitespace or ends the text, and it is not an abbreviation (Dr., Mr.,
   e.g., U.S., …) or an initial ("J."). The ending event's probability (all such next tokens) is part of every
   score (modal/ensemble_lib.py, sentence_period). Known trade-off: "Vitamin C." reads as an initial.
+- Decided (Tim): no K and no Sample in the ensemble prototype. The rail ranks every distinct completion by its
+  ensemble score (exact), with its probability under the ensemble (φ/Ẑ, Ẑ estimated from the pool); ten shown
+  until "Show all"; the five best are red and labelled in the plot.
+- Decided (Tim): keep the hand-written sentence rule; pySBD only answers "does this period end a sentence?"
+  with a made-up continuation, and agrees with the rule except where the next word decides. If needed later,
+  refine with the next token itself (space + capital letter, newline, end of text), still exact.
 - Next: a live route on Modal (/ensemble_sample) so ↑ can run new pairs.
 
 ## Run log and shared cache (for us, not a visitor feature)
