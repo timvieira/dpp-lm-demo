@@ -1126,6 +1126,20 @@ function wire() {
   $('#K-plus').onclick = () => setK(S.K + 1);
   $('#label-toggle').onchange = () => renderLabels();
   // Pop-up panels close on an outside click or Escape.
+  // Feedback opens a new GitHub issue with the current settings filled in (the visitor sees and can edit
+  // them before posting; the issue is public).
+  $('#feedback').addEventListener('click', () => {
+    const c = readConfig();
+    const body = [
+      '<!-- What happened, or what would you like? -->', '', '',
+      '---', '<!-- The settings when you clicked Feedback (delete anything you would rather not share). -->',
+      `- Prompt: ${c.prompt}`,
+      `- Model: ${backend().label} · embedding ${embedderOf(backend()).label} · N ${c.N} · T′ ${c.Tprime} · max tokens ${c.maxNewTokens}`,
+      `- T ${fmtT(S.T)} · K ${S.K} · ${S.mode === 'map' ? 'Most likely' : 'Sample'} · target ${TARGETS[S.target].short} · ${S.dims}-D`,
+      `- Screen: ${innerWidth}×${innerHeight}`,
+    ].join('\n');
+    $('#feedback').href = 'https://github.com/timvieira/dpp-lm-demo/issues/new?' + new URLSearchParams({ title: 'Feedback: ', body });
+  });
   const pops = ['#viewmenu', '#specmenu', '#adv', '#exmenu'];
   document.addEventListener('click', (e) => { for (const id of pops) { const m = $(id); if (m?.open && !e.composedPath().includes(m) && !e.target.closest('.xpop')) m.open = false; } });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { const was = pops.some((id) => $(id)?.open); for (const id of pops) if ($(id)) $(id).open = false; if (!was && wide.matches) setDrawer(false); } });
