@@ -612,7 +612,7 @@ class Plot2D {
     const sel = new Set(S.sel);
     const idx = d3.range(N);
     const posD = idx.map((i) => (dims === 1 ? [this.dataXY(i, S.c[i])[0], this.dataXY(i, 1)[1]] : this.dataXY(i, S.c[i])));
-    const vol = dims === 2 && S.sel.length === 2 && axesFitSel();
+    const vol = dims === 2 && S.sel.length === 2;
     const volD = vol ? parallelotope([0, 0], S.sel.map((i) => posD[i])) : { faces: [], corners: [] };
     if (!this.bx) this.fit([...posD, ...volD.corners.map((c) => c.p)]);   // framed once, when first drawn
     Object.assign(this, { posD, volD, sel });
@@ -690,7 +690,7 @@ const plot = {
         });
       }
       this.p3.update({
-        coords: S.proj.coords, c: S.c, sel: S.sel, fitted: S.proj.fitted, exact: axesFitSel(),
+        coords: S.proj.coords, c: S.c, sel: S.sel, fitted: S.proj.fitted,
         color: () => css('--ink'), selColor: () => css('--accent'), accent: css('--accent'), text: css('--text-2'), muted: css('--muted'), bg: css('--surface'),
       });
     } else this.p2.update();

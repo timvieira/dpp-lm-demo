@@ -219,7 +219,7 @@ export class Plot3D {
       const z = this.view?.h ?? this.frameH ?? 1;   // widths follow the zoom, so they look the same at any frame
       this.dyn.add(new THREE.ArrowHelper(p.clone().normalize(), O, len, color, Math.min(0.06 * z, len * 0.3), Math.min(0.03 * z, len * 0.15)));
     }
-    if (o.sel.length >= 2 && few && o.exact !== false) {   // main page: only when the axes contain the selection (the scored volume)
+    if (o.sel.length >= 2 && few) {   // the box the selected vectors span, whenever there are 2 or 3 of them
       const v = o.sel.map((i) => this.current[i]);
       const n = v.length;
       const corner = (mask) => v.reduce((c, x, k) => (mask & (1 << k) ? c.add(x) : c), new THREE.Vector3());
