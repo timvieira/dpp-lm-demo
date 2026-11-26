@@ -14,6 +14,7 @@ on:
 
 permissions:
   contents: write
+  actions: write   # to start the Pages deploy (a push made by this workflow does not trigger other workflows)
 
 jobs:
   pools:
@@ -39,3 +40,8 @@ jobs:
           # main may have moved while the GPU ran; the pools touch only data/ensemble/*.json, so rebase and push.
           for i in 1 2 3; do git pull --rebase origin "${GITHUB_REF_NAME}" && git push && exit 0; sleep 5; done
           exit 1
+      - name: Deploy the site with the new pools
+        if: github.ref_name == 'main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run pages.yml --ref main
