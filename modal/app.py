@@ -139,12 +139,12 @@ class Sampler:
         }
 
     @modal.method()
-    def ensemble_pool(self, preset, n, t_prime, max_new_tokens, seed):
+    def ensemble_pool(self, preset, fmt, n, t_prime, max_new_tokens, seed):
         """A pool for the ensemble prototype (modal/ensemble_lib.py; docs/handoff-ensemble-demo.md)."""
         from ensemble_lib import ensemble_pool
         t0 = time.time()
         try:
-            return ensemble_pool(self.tok, self.model, preset, n=n, t_prime=t_prime, max_new_tokens=max_new_tokens,
+            return ensemble_pool(self.tok, self.model, preset, fmt, n=n, t_prime=t_prime, max_new_tokens=max_new_tokens,
                                  seed=seed, model_name=MODEL_REPO)
         finally:
             dt = time.time() - t0
@@ -406,9 +406,10 @@ def smoke():
 
 
 @app.local_entrypoint()
-def ensemble_cache(only: str = "", n: int = 200, t_prime: float = 1.0, max_new_tokens: int = 32, seed: int = 0):
+def ensemble_cache(only: str = "", formats: str = "text,chat", n: int = 200, t_prime: float = 1.0,
+                   max_new_tokens: int = 32, seed: int = 0):
     """Qwen3 14B pools for the ensemble prototype: modal run modal/app.py::ensemble_cache [--only id,id]
-    Writes data/ensemble/<id>.json for each preset in data/ensemble/presets.json."""
+    Writes data/ensemble/<id>.<text|chat>.json for each preset in data/ensemble/presets.json."""
     import json
     root = pathlib.Path(__file__).parent.parent
     presets = json.load(open(root / "data/ensemble/presets.json"))
@@ -416,14 +417,15 @@ def ensemble_cache(only: str = "", n: int = 200, t_prime: float = 1.0, max_new_t
     for p in presets:
         if want and p["id"] not in want:
             continue
-        rec = Sampler().ensemble_pool.remote(p, n, t_prime, max_new_tokens, seed)
-        rec["standIn"] = False
-        path = root / "data/ensemble" / f"{p['id']}.json"
-        path.write_text(json.dumps(rec, ensure_ascii=False, separators=(",", ":")))
-        ended = sum(s["ended"] for s in rec["samples"])
-        print(f"{p['id']}: {rec['N']} samples ({ended} ended), check {rec['checkMaxAbsErr']:.2e} nats, {rec['timing']}")
-        # A bug shows up as whole nats; fp16 on the GPU gives ~0.1 between incremental and one-pass scoring.
-        assert rec["checkMaxAbsErr"] < 0.5, "sampling sums disagree with teacher-forced scores"
+        for fmt in [f for f in formats.split(",") if f]:
+            rec = Sampler().ensemble_pool.remote(p, fmt, n, t_prime, max_new_tokens, seed)
+            rec["standIn"] = False
+            path = root / "data/ensemble" / f"{p['id']}.{fmt}.json"
+            path.write_text(json.dumps(rec, ensure_ascii=False, separators=(",", ":")))
+            ended = sum(s["ended"] for s in rec["samples"])
+            print(f"{p['id']}.{fmt}: {rec['N']} samples ({ended} ended), check {rec['checkMaxAbsErr']:.2e} nats, {rec['timing']}")
+            # A bug shows up as whole nats; fp16 on the GPU gives ~0.1 between incremental and one-pass scoring.
+            assert rec["checkMaxAbsErr"] < 0.5, "sampling sums disagree with teacher-forced scores"
 
 
 @app.function(image=gpu_image, volumes={"/cache": cache}, timeout=1800, memory=65536)

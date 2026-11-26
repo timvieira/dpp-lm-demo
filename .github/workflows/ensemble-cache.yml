@@ -8,6 +8,9 @@ on:
       only:
         description: 'Preset ids, comma-separated (empty: all in data/ensemble/presets.json)'
         default: ''
+      formats:
+        description: 'Prompt formats, comma-separated (text, chat)'
+        default: 'text,chat'
       n:
         description: 'Completions per preset'
         default: '200'
@@ -29,7 +32,7 @@ jobs:
           python-version: '3.12'
       - run: pip install modal==1.6.3
       - name: Draw and score the pools
-        run: modal run modal/app.py::ensemble_cache --only "${{ inputs.only }}" --n "${{ inputs.n }}"
+        run: modal run modal/app.py::ensemble_cache --only "${{ inputs.only }}" --formats "${{ inputs.formats }}" --n "${{ inputs.n }}"
       - name: Commit the pools
         run: |
           git config user.name "github-actions[bot]"

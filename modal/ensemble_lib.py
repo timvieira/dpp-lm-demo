@@ -98,7 +98,7 @@ def ending_kind(text):
     return "any"
 
 
-KINDS = ("any", "upper", "nodigit", "line")
+KINDS = ("any", "upper", "nodigit", "line", "eos")   # "eos": chat replies end only at the end-of-turn token
 
 
 def ending_masks(tok, model, eos, dev):
@@ -118,7 +118,7 @@ def ending_masks(tok, model, eos, dev):
         dig[i] = rest[:1].isdigit() or rest[:1] == "("
     e = torch.zeros(V, dtype=torch.bool)
     e[list(eos)] = True
-    m = {"any": ws | e, "upper": up | nl | e, "nodigit": (ws & ~dig) | e, "line": nl | e}
+    m = {"any": ws | e, "upper": up | nl | e, "nodigit": (ws & ~dig) | e, "line": nl | e, "eos": e}
     return {k: v.to(dev) for k, v in m.items()}
 
 
@@ -146,7 +146,8 @@ def ensemble_sample(tok, model, A, B, n, t_prime=1.0, max_new_tokens=32, seed=0,
         while len(out) < n:
             Bn = min(batch_size, n - len(out))
             acc = {k: torch.zeros(Bn, dtype=torch.float64) for k in ("A", "B", "r", "local")}
-            done, kind, end = [False] * Bn, ["line"] * Bn, ["max"] * Bn
+            # Text: the sentence rules above. Chat: a reply ends where the model ends its turn.
+            done, kind, end = [False] * Bn, ["eos" if chat else "line"] * Bn, ["max"] * Bn
             seqs = [[] for _ in range(Bn)]
             pa = pb = None
             sa, sb = ia.repeat(Bn, 1), ib.repeat(Bn, 1)
@@ -181,10 +182,11 @@ def ensemble_sample(tok, model, A, B, n, t_prime=1.0, max_new_tokens=32, seed=0,
                     for k in acc:
                         acc[k][b] += tokp[k][b]
                     seqs[b].append(nl[b])
-                    if nl[b] < len(has_nl) and has_nl[nl[b]]:
+                    if not chat and nl[b] < len(has_nl) and has_nl[nl[b]]:
                         done[b], end[b] = True, "token"                  # e.g. ".\n": ends at the line break
                         continue
-                    kind[b] = ending_kind(tok.decode(seqs[b]))
+                    if not chat:
+                        kind[b] = ending_kind(tok.decode(seqs[b]))
                 if all(done):
                     break
                 sa = sb = nxt[:, None]
@@ -197,7 +199,7 @@ def ensemble_sample(tok, model, A, B, n, t_prime=1.0, max_new_tokens=32, seed=0,
                     "logpA": acc["A"][b], "logpB": acc["B"][b], "logr": acc["r"][b], "loglocal": acc["local"][b],
                     "nTokens": len(seqs[b]), "ended": end[b] != "max",
                     "end": {"any": "sentence", "upper": "sentence", "nodigit": "sentence", "line": "line",
-                            "token": "line", "max": "max"}[end[b]],
+                            "token": "line", "eos": "eos", "max": "max"}[end[b]],
                 })
     return out
 
@@ -234,9 +236,16 @@ def score_ids(tok, model, prompt, seqs, end_kinds=None, batch_size=50, chat=Fals
     return out
 
 
-def ensemble_pool(tok, model, preset, n=200, t_prime=1.0, max_new_tokens=32, seed=0,
-                  chat=False, chat_kw=None, model_name="", check=True):
-    """One preset's pool: samples from the A×B product, scored under A, B and (if given) C."""
+CHAT_KW = {"enable_thinking": False}   # Qwen3: answer directly, no reasoning block
+
+
+def ensemble_pool(tok, model, preset, fmt="text", n=200, t_prime=1.0, max_new_tokens=32, seed=0,
+                  chat_kw=CHAT_KW, model_name="", check=True):
+    """One preset's pool in one prompt format ("text": continue the prompt as plain text, as in the paper's
+    Fig. 1; "chat": the prompts are user messages in the model's chat template and the completions are its
+    replies): samples from the A×B product, scored under A, B and (if given) C."""
+    chat = fmt == "chat"
+    pid, label, preset = preset["id"], preset.get("label", ""), preset[fmt]
     import time
     t0 = time.time()
     S = ensemble_sample(tok, model, preset["A"], preset["B"], n, t_prime, max_new_tokens, seed,
@@ -255,7 +264,7 @@ def ensemble_pool(tok, model, preset, n=200, t_prime=1.0, max_new_tokens=32, see
     for s in S:
         del s["ids"], s["endKind"]
     return {
-        "schema": 1, "kind": "ensemble-pool", "id": preset["id"], "label": preset.get("label", ""),
+        "schema": 2, "kind": "ensemble-pool", "id": pid, "label": label, "format": fmt,
         "prompts": {k: preset[k] for k in ("A", "B", "C") if preset.get(k)},
         "model": model_name, "chat": chat, "proposal": "local_product", "Tprime": t_prime,
         "maxNewTokens": max_new_tokens, "stop": "sentence-or-line-v2", "N": len(S), "seed": seed,

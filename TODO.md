@@ -90,6 +90,11 @@ Full notes: docs/matrix-views.md (the views, the kernel / eigendecomposition / P
 - Decided (Tim): no in-browser models (GPT-2 in Transformers.js was considered). Design for a phone: one
   WebAssembly thread on GitHub Pages, roughly 3–5 min per pool at N = 200, and exact weights too big to download.
   Cached pools for the examples, and live runs on a server.
+- Decided (Tim): two prompt formats with the same Qwen3 14B weights, chosen in the settings: "Continue text"
+  (the default; plain-text continuation as in the paper's Fig. 1; one sentence or one line) and "Chat" (the
+  prompts are user messages in the chat template, reasoning off; a reply ends at the end-of-turn token). Each
+  example pair has both phrasings (data/ensemble/presets.json); pools are data/ensemble/<id>.<text|chat>.json.
+  A chat model is still a language model: raw continuation is valid, just a different distribution.
 - Next: a live route on Modal (/ensemble_sample) so ↑ can run new pairs.
 
 ## Run log and shared cache (for us, not a visitor feature)
