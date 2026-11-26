@@ -920,7 +920,7 @@ async function runLive({ k = drawK } = {}) {
   const slowAfter = B.id === 'server' ? 20 : 90;
   const show = () => stageMsg('running', {
     title: need ? `Sampling ${need} completions… ${secs()} s` : `Embedding the completions… ${secs()} s`,
-    // The GPU server keeps a log of runs (prompts and completions, nothing about the visitor).
+    // The GPU server logs runs, and stores each request's IP address with it (see docs/BACKEND.md, usage reporting).
     detail: `${escapeHtml(B.label)}.${B.id === 'server' ? ' Runs here are logged for research.' : ' The first run starts a GPU, which can take a minute or two.'}` +
       (secs() >= slowAfter ? ' <b>This is taking longer than usual:</b> the server may be busy with other requests, or a GPU is starting.' : ''),
     actions: '<button type="button" class="btn" data-act="stop">Stop</button>',
