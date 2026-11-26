@@ -548,9 +548,10 @@ input[type=range] { width: 100%; accent-color: var(--ink); margin: 4px 0 0; }
 #all-cards .card { padding: 9px 12px 8px; }
 #all-cards .card .txt { font-size: 15.5px; }
 
-/* Long completions are clipped to four lines in the rail; clicking a card shows the whole text at the
-   bottom of the middle area (the inspector), scrolling if it is long. */
+/* Long completions are clipped to four lines in the rail. On wide screens clicking a card shows the whole
+   text in the inspector; on phones the card unfolds in place (openCard in main.js). */
 .rail .card .txt { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; line-clamp: 4; overflow: hidden; }
+.rail .card.open .txt { display: block; -webkit-line-clamp: unset; line-clamp: none; overflow: visible; }   /* unfolded in place (phones) */
 @media (min-width: 901px) {
   .inspect { position: fixed; left: calc(var(--ctl-w) + 24px); right: calc(var(--rail-w) + 24px); top: auto; bottom: calc(var(--bar-h, 40px) + 12px);
     max-height: 48vh; z-index: 40; }

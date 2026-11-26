@@ -230,6 +230,7 @@ function setPool(pool, G, view) {
   G = sameStringsSameRows(pool.samples, G);
   $('#labels').innerHTML = '';
   S.pinned = -1;
+  S.open = new Set();   // cards expanded in place (phones)
   S.pool = pool;
   S.G = G;
   S.view = view;
@@ -435,7 +436,7 @@ function renderCards() {
   const order = S.sel.slice().sort((a, b) => (by(b) - by(a)) || (S.logp[b] - S.logp[a]));
   $('#selected').innerHTML = order.map((i) => {
     const s = S.pool.samples[i];
-    return `<li class="card${s.ended ? '' : ' cut'}" data-i="${i}">
+    return `<li class="card${s.ended ? '' : ' cut'}${S.open?.has(i) ? ' open' : ''}" data-i="${i}">
       <div class="txt">${escapeHtml(s.text)}${s.ended ? '' : ' …'}</div>
       <div class="meta"><span class="dot" style="background:${css('--accent')}"></span>log p ${fmt(s.logp, 1)}<span>·</span><span class="fn">inclusion ${pct(incl(i))}<button type="button" class="xbtn" data-x="inclusion" aria-label="What is the inclusion probability?">?</button></span>${cutLabel(s)}</div></li>`;
   }).join('');
@@ -443,8 +444,18 @@ function renderCards() {
   $('#selected').querySelectorAll('.card').forEach((el) => {
     el.onmouseenter = () => plot.highlight(+el.dataset.i);
     el.onmouseleave = () => plot.highlight(-1);
-    el.onclick = (e) => { if (!e.target.closest('.xbtn')) inspect(+el.dataset.i); };
+    el.onclick = (e) => { if (!e.target.closest('.xbtn')) openCard(el); };
   });
+}
+// A tap on a card: on wide screens the inspector (beside the list) shows the full text; on phones the
+// inspector would be far up the page, so the card unfolds in place instead, and a second tap folds it.
+function openCard(el) {
+  const i = +el.dataset.i;
+  if (wide.matches) { inspect(i); return; }
+  const open = !el.classList.contains('open');
+  el.classList.toggle('open', open);
+  if (open) S.open.add(i); else S.open.delete(i);
+  plot.highlight(open ? i : -1);
 }
 // All completions, in the rail under the selected ones and in the same card style: one card per distinct
 // string (copies counted), most likely to be included first. Re-rendered at most every 150 ms, so
@@ -464,14 +475,14 @@ function renderAllCards() {
     $('#all-meta').textContent = `${S.pool.samples.length} completions, ${rows.length} distinct${cut ? `, ${cut} cut off at the token limit` : ''} · ${S.pi ? 'by inclusion' : 'by log p'}`;
     $('#all-cards').innerHTML = rows.map(({ i, n }) => {
       const s = S.pool.samples[i], on = sel.has(s.text);
-      return `<li class="card${s.ended ? '' : ' cut'}" data-i="${i}">
+      return `<li class="card${s.ended ? '' : ' cut'}${S.open?.has(i) ? ' open' : ''}" data-i="${i}">
       <div class="txt">${escapeHtml(s.text)}${s.ended ? '' : ' …'}</div>
       <div class="meta"><span class="dot" style="background:${on ? css('--accent') : css('--ramp-lo')}"></span>${n > 1 ? `×${n}<span>·</span>` : ''}log p ${fmt(s.logp, 1)}<span>·</span>inclusion ${pct(incl(i))}${cutLabel(s)}</div></li>`;
     }).join('');
     $('#all-cards').querySelectorAll('.card').forEach((el) => {
       el.onmouseenter = () => plot.highlight(+el.dataset.i);
       el.onmouseleave = () => plot.highlight(-1);
-      el.onclick = () => inspect(+el.dataset.i);
+      el.onclick = () => openCard(el);
     });
   }, 150);
 }
