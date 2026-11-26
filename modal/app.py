@@ -15,6 +15,7 @@ Weights:  modal run modal/app.py::download   (once; fills the volume on a CPU ma
 """
 import datetime
 import os
+import pathlib
 import time
 
 import modal
@@ -42,6 +43,8 @@ gpu_image = (
     modal.Image.debian_slim(python_version="3.12")
     .pip_install("torch==2.13.0", "transformers==5.24.0", "sentence-transformers==6.3.0", "numpy")
     .env({"HF_HOME": "/cache/hf", "TOKENIZERS_PARALLELISM": "false"})
+    # The ensemble prototype's pool code (plain PyTorch, shared with scripts/ensemble_pool.py).
+    .add_local_file(pathlib.Path(__file__).parent / "ensemble_lib.py", "/root/ensemble_lib.py")
 )
 web_image = modal.Image.debian_slim(python_version="3.12").pip_install("fastapi[standard]")
 
@@ -134,6 +137,19 @@ class Sampler:
             "N": len(samples), "D": D, "seed": seed, "samples": samples, "G": G,
             "timing": {"generate_s": round(t1 - t0, 2), "embed_s": round(time.time() - t1, 2)},
         }
+
+    @modal.method()
+    def ensemble_pool(self, preset, n, t_prime, max_new_tokens, seed, stop="."):
+        """A pool for the ensemble prototype (modal/ensemble_lib.py; docs/handoff-ensemble-demo.md)."""
+        from ensemble_lib import ensemble_pool
+        t0 = time.time()
+        try:
+            return ensemble_pool(self.tok, self.model, preset, n=n, t_prime=t_prime, max_new_tokens=max_new_tokens,
+                                 seed=seed, stop=stop, model_name=MODEL_REPO)
+        finally:
+            dt = time.time() - t0
+            self.charged += dt
+            _charge(dt)
 
     @modal.method()
     def embed(self, texts):
@@ -387,6 +403,26 @@ def smoke():
     assert same < 1e-5
     for s in pool["samples"]:
         print(f"  logp={s['logp']:8.3f} logq={s['logq']:8.3f} n={s['nTokens']} ended={s['ended']} {s['text']!r}")
+
+
+@app.local_entrypoint()
+def ensemble_cache(only: str = "", n: int = 200, t_prime: float = 1.0, max_new_tokens: int = 32, seed: int = 0):
+    """Qwen3 14B pools for the ensemble prototype: modal run modal/app.py::ensemble_cache [--only id,id]
+    Writes data/ensemble/<id>.json for each preset in data/ensemble/presets.json."""
+    import json
+    root = pathlib.Path(__file__).parent.parent
+    presets = json.load(open(root / "data/ensemble/presets.json"))
+    want = {x for x in only.split(",") if x}
+    for p in presets:
+        if want and p["id"] not in want:
+            continue
+        rec = Sampler().ensemble_pool.remote(p, n, t_prime, max_new_tokens, seed)
+        rec["standIn"] = False
+        path = root / "data/ensemble" / f"{p['id']}.json"
+        path.write_text(json.dumps(rec, ensure_ascii=False, separators=(",", ":")))
+        ended = sum(s["ended"] for s in rec["samples"])
+        print(f"{p['id']}: {rec['N']} samples ({ended} ended), check {rec['checkMaxAbsErr']:.2e} nats, {rec['timing']}")
+        assert rec["checkMaxAbsErr"] < 0.05, "sampling sums disagree with teacher-forced scores"
 
 
 @app.function(image=gpu_image, volumes={"/cache": cache}, timeout=1800, memory=65536)

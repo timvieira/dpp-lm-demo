@@ -1,0 +1,39 @@
+name: Ensemble prototype pools (Qwen3 14B on Modal)
+
+# Run by hand (Actions tab, or the API): draws the ensemble prototype's pools on Modal's GPU and commits
+# data/ensemble/*.json to the branch it ran on. Costs GPU time from the Modal credit (a few minutes).
+on:
+  workflow_dispatch:
+    inputs:
+      only:
+        description: 'Preset ids, comma-separated (empty: all in data/ensemble/presets.json)'
+        default: ''
+      n:
+        description: 'Completions per preset'
+        default: '200'
+
+permissions:
+  contents: write
+
+jobs:
+  pools:
+    runs-on: ubuntu-latest
+    env:
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install modal==1.6.3
+      - name: Draw and score the pools
+        run: modal run modal/app.py::ensemble_cache --only "${{ inputs.only }}" --n "${{ inputs.n }}"
+      - name: Commit the pools
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/ensemble/*.json
+          git diff --cached --quiet && { echo "nothing new"; exit 0; }
+          git commit -m "Ensemble prototype: Qwen3 14B pools from Modal (${{ inputs.only || 'all presets' }})"
+          git push
