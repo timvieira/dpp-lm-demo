@@ -25,7 +25,6 @@ def main():
     ap.add_argument("--tprime", type=float, default=1.0)
     ap.add_argument("--max-new-tokens", type=int, default=32)
     ap.add_argument("--seed", type=int, default=0)
-    ap.add_argument("--stop", default=".")
     ap.add_argument("--out", default=os.path.join(ROOT, "data/ensemble"))
     args = ap.parse_args()
 
@@ -40,7 +39,7 @@ def main():
         if args.only and p["id"] not in args.only:
             continue
         rec = ensemble_pool(tok, model, p, n=args.n, t_prime=args.tprime, max_new_tokens=args.max_new_tokens,
-                            seed=args.seed, stop=args.stop, model_name=args.model)
+                            seed=args.seed, model_name=args.model)
         rec["standIn"] = args.model != "Qwen/Qwen3-14B-AWQ"
         path = os.path.join(args.out, f"{p['id']}.json")
         with open(path, "w") as f:

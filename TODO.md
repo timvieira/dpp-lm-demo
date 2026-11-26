@@ -74,8 +74,10 @@ Full notes: docs/matrix-views.md (the views, the kernel / eigendecomposition / P
   its settings says live runs aren't connected yet and offers an example.
 - Open: preset wording. "A famous scientist is" continues as "…coming to our school next week."; better
   phrasings (e.g. "My favorite scientist is") or a different pair list.
-- Open: stopping at the first period cuts "Dr." and "0.5" ("known to have a 0."); stop at a period followed by
-  a space or the end, or keep the paper's rule.
+- Decided (Tim): completions are one sentence, with exceptions for non-sentence punctuation. A period ends a
+  sentence when the next token starts with whitespace or ends the text, and it is not an abbreviation (Dr., Mr.,
+  e.g., U.S., …) or an initial ("J."). The ending event's probability (all such next tokens) is part of every
+  score (modal/ensemble_lib.py, sentence_period). Known trade-off: "Vitamin C." reads as an initial.
 - Next: a live route on Modal (/ensemble_sample) so ↑ can run new pairs.
 
 ## Run log and shared cache (for us, not a visitor feature)

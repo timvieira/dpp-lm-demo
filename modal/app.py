@@ -139,13 +139,13 @@ class Sampler:
         }
 
     @modal.method()
-    def ensemble_pool(self, preset, n, t_prime, max_new_tokens, seed, stop="."):
+    def ensemble_pool(self, preset, n, t_prime, max_new_tokens, seed):
         """A pool for the ensemble prototype (modal/ensemble_lib.py; docs/handoff-ensemble-demo.md)."""
         from ensemble_lib import ensemble_pool
         t0 = time.time()
         try:
             return ensemble_pool(self.tok, self.model, preset, n=n, t_prime=t_prime, max_new_tokens=max_new_tokens,
-                                 seed=seed, stop=stop, model_name=MODEL_REPO)
+                                 seed=seed, model_name=MODEL_REPO)
         finally:
             dt = time.time() - t0
             self.charged += dt
