@@ -100,7 +100,14 @@ Full notes: docs/matrix-views.md (the views, the kernel / eigendecomposition / P
   in every score; nothing is blocked or dropped. Each completion records which special token ended it
   (endToken), to spot e.g. replies that run into <|im_start|>. Before, only <|im_end|>/<|endoftext|> ended one
   and other special tokens were kept but hidden by decoding.
-- Next: a live route on Modal (/ensemble_sample) so ↑ can run new pairs.
+- Done: live runs on Modal for the ensemble prototype. /ensemble_sample on the Modal web app (Hugging Face
+  sign-in, the shared daily run limit and monthly GPU budget), two models: Qwen3 14B (the existing L40S
+  container; text and chat formats) and GPT-2 (124M, its own T4 container, charged to the meter at T4 prices;
+  text only). The page offers both in the settings and runs anything not cached; pools are
+  data/ensemble/<pair>.<model>.<format>.json, drawn for both models by the "Ensemble prototype pools" workflow.
+- Check: Hugging Face sign-in from the lab page redirects back to lab/ensemble.html; if the OAuth app does not
+  list that address as a redirect URL, add it (huggingface.co/settings/applications). The token is shared with
+  the main page (same origin), so signing in there works too.
 
 ## Run log and shared cache (for us, not a visitor feature)
 - Done on Manuel's server (25 Nov): every run is logged (nothing about the visitor), and the shared draw
