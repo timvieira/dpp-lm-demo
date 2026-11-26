@@ -57,6 +57,16 @@ Full notes: docs/matrix-views.md (the views, the kernel / eigendecomposition / P
   vectors it compares (with the angle); hovering a row shows it as a candidate card (volume factor, π before and
   after). Open: what to do when the set already has K (today: the candidate card says to remove one first).
 
+## Prototype: the ensemble demo (prompt intersection, arXiv:2603.05432 Fig. 1)
+- Brief: docs/handoff-ensemble-demo.md. Built here as an unlinked lab page (lab/ensemble.html), to move
+  to its own repository once it works.
+- Decided (Tim): Qwen3 14B (the GPU server's model); cached pools for the presets during development
+  (data/ensemble/presets.json).
+- Waiting on Manuel: `/score` (texts scored under given prompts) first; the token-level product sampler
+  with local scores second. Today's server has neither (checked 26 Nov). With `/score` alone, a 50/50
+  mixture of A and B draws gives the global ensemble exactly; local scores wait for the sampler.
+- Meanwhile: stand-in pools from Qwen3-0.6B on CPU (scripts/ensemble_pool.py), marked as stand-ins.
+
 ## Run log and shared cache (for us, not a visitor feature)
 - Done on Manuel's server (25 Nov): every run is logged (nothing about the visitor), and the shared draw
   cache exists, opt-in through `offset` (see "From Manuel's update" below). Our page says "Runs here are
