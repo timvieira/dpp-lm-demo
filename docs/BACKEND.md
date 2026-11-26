@@ -77,6 +77,23 @@ e.g. `bad_request: Allowed: …`; ZeroGPU's own quota errors keep their text and
 (Gradio's simpler `/gradio_api/call/…` endpoint sends `null` for every error, and its JS client sends
 credentials, which the Space's CORS answer does not allow for other sites; so neither is used.)
 
+## Usage reporting (GPU server only)
+
+When the GPU server's `GET /status` has `"usage": true`, the page reports to it (`js/usage.js`, rules in
+`js/usage-lib.js`). No other backend receives any of this, and a failure never affects the page.
+
+- Ids: `visitor` (22 random characters, kept in `localStorage` under `dpp-visitor`) and `session` (new on
+  each page load).
+- `POST /event` `{visitor, session, type: "load", referrer, expert: false}` once per page load, as soon as
+  the status has been read, so a visit that only looks at precomputed prompts is counted. `referrer` is the
+  host of `document.referrer`. The answer is 204.
+- `POST /event` `{visitor, session, type: "ui", name, value?}` for `mode` (value `map` or `sample`) and
+  `spectrum_open`, at most one per name per 10 s.
+- `visitor` and `session` are added to the JSON body of `/sample` and `/embed`.
+
+The server keeps, per request, the client's IP address, the prompt, the settings, the outcome and the
+timing, with the completions linked to it, and per event the IP address and the ids. The store is private.
+
 ## Version
 
 `version` in `/status` is the contract version. A change to the meaning of any field above is a new

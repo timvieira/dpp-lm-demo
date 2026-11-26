@@ -3,6 +3,6 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test tests/dpp.test.mjs tests/dpp-reference.test.mjs tests/orderings.test.mjs"
+    "test": "node --test tests/dpp.test.mjs tests/dpp-reference.test.mjs tests/orderings.test.mjs tests/usage-lib.test.mjs"
   }
 }

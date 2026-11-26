@@ -23,7 +23,7 @@ jobs:
         with:
           node-version: 22
       - name: Unit tests (DPP maths)
-        run: node --test tests/dpp.test.mjs tests/dpp-reference.test.mjs tests/orderings.test.mjs
+        run: node --test tests/dpp.test.mjs tests/dpp-reference.test.mjs tests/orderings.test.mjs tests/usage-lib.test.mjs
       - name: Assemble site
         # Scripts and styles go under a per-commit folder, so a reload never mixes a new page
         # with stale cached code (Pages lets browsers reuse files for 10 minutes).

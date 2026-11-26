@@ -3,6 +3,7 @@ import { eigSym, kdpp, greedyMAPLog, quality, diversity, mulberry32 } from './dp
 import { Plot3D } from './plot3d.js';
 import { initExplainers } from './explain.js';
 import { authEnabled, getAuth, signIn, signOut, finishSignIn } from './hfauth.js';
+import { usageStatus, usageBody, initUsage } from './usage.js';
 
 const $ = (s) => document.querySelector(s);
 const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
@@ -802,7 +803,7 @@ class RunError extends Error { constructor(code, message) { super(message); this
 async function callBackend(B, path, body, { signal, auth }) {
   const headers = { 'Content-Type': 'application/json', ...(auth ? { Authorization: `Bearer ${auth.token}` } : {}) };
   let r;
-  try { r = await fetch(`${B.url}${path}`, { method: 'POST', signal, headers, body: JSON.stringify(body) }); }
+  try { r = await fetch(`${B.url}${path}`, { method: 'POST', signal, headers, body: JSON.stringify(usageBody(B.url, path, body)) }); }   // ids only for the GPU server
   catch (e) { if (e.name === 'AbortError') throw e; throw new RunError('unreachable', ''); }
   const out = await r.json().catch(() => null);
   if (r.ok && out) return out;
@@ -1046,12 +1047,14 @@ async function checkServer() {
   try {
     const r = await fetch(`${B.url}/status`, { signal: AbortSignal.timeout(6000) });
     B.up = r.ok;
+    usageStatus(B, r.ok ? await r.json().catch(() => null) : null);   // usage ids and the load event (js/usage.js)
   } catch { B.up = false; }
   return B.up;
 }
 
 function wire() {
   initExplainers();
+  initUsage();
   const fillModels = () => {
     $('#model').innerHTML = BACKENDS.map((B) => `<option value="${B.id}">${escapeHtml(B.label)}${B.up === false ? ' — not available right now' : ''}</option>`).join('');
   };
