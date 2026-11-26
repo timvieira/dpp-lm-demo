@@ -36,6 +36,7 @@ jobs:
           for f in lab/*.html; do
             cp "$f" _site/lab/
             s=$(basename "$f" .html)
+            grep -q "src=\"$s.js\"" "$f" || continue   # a redirect page (lab/ensemble.html) has no script
             sed -i "s#src=\"$s.js\"#src=\"../$V/lab/$s.js\"#" "_site/lab/$s.html"
             grep -q "$V/lab/$s.js" "_site/lab/$s.html"
           done
