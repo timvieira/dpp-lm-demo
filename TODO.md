@@ -65,7 +65,18 @@ Full notes: docs/matrix-views.md (the views, the kernel / eigendecomposition / P
 - Waiting on Manuel: `/score` (texts scored under given prompts) first; the token-level product sampler
   with local scores second. Today's server has neither (checked 26 Nov). With `/score` alone, a 50/50
   mixture of A and B draws gives the global ensemble exactly; local scores wait for the sampler.
-- Meanwhile: stand-in pools from Qwen3-0.6B on CPU (scripts/ensemble_pool.py), marked as stand-ins.
+- Done (26 Nov): Qwen3 14B pools for the five presets, drawn on Modal (modal/ensemble_lib.py through the manual
+  "Ensemble prototype pools" workflow; about 15 s of GPU per preset). The token-level product sampler and local
+  scores run there, so the GPU server's missing routes no longer block the prototype. Physicist × author
+  reproduces the paper's direction: against the explicit prompt, ρ = 0.94 global (product) vs 0.77 local.
+- Done: lab/ensemble.html has the composer (prompts A and B, examples, settings, ↑), the τ/K panel with ticks at
+  the named means, a View menu (Scored global/local) and "?" explainers; ↑ on anything but an example pair at
+  its settings says live runs aren't connected yet and offers an example.
+- Open: preset wording. "A famous scientist is" continues as "…coming to our school next week."; better
+  phrasings (e.g. "My favorite scientist is") or a different pair list.
+- Open: stopping at the first period cuts "Dr." and "0.5" ("known to have a 0."); stop at a period followed by
+  a space or the end, or keep the paper's rule.
+- Next: a live route on Modal (/ensemble_sample) so ↑ can run new pairs.
 
 ## Run log and shared cache (for us, not a visitor feature)
 - Done on Manuel's server (25 Nov): every run is logged (nothing about the visitor), and the shared draw
