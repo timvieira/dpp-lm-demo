@@ -58,7 +58,7 @@ Full notes: docs/matrix-views.md (the views, the kernel / eigendecomposition / P
   after). Open: what to do when the set already has K (today: the candidate card says to remove one first).
 
 ## Prototype: the ensemble demo (prompt intersection, arXiv:2603.05432 Fig. 1)
-- **Moved (26 Nov) to https://github.com/timvieira/prompt-intersection** (https://timvieira.github.io/prompt-intersection/).
+- **Moved (26 Nov) to https://github.com/timvieira/lm-ensemble-demo** (https://timvieira.github.io/lm-ensemble-demo/; open items in its TODO.md).
   lab/ensemble.html here only redirects there, and the page is developed there; lab/ensemble*.js, data/ensemble/ and
   the test are left here unused. Its backend stays here: modal/app.py and modal/ensemble_lib.py, and the pools
   workflow, which commits pools to data/ensemble/ here; copy them to its data/ by hand.
@@ -173,6 +173,10 @@ says version 1 with limits 200 / 256, and n = 201 and max_new_tokens = 300 get 4
   "Press ↑ to sample N completions" when only embedding is needed; and on another backend than the one
   that drew the completions, ↑ draws N new ones (draws are reused only per backend) instead of
   re-embedding those on screen.
+
+## Seen in a review (26 Nov)
+- At 1600 × 1000, on the default page (the short-story prompt, K = 3, Most likely, T = 20), the 3-D box runs under
+  the right rail, and the label at its far corner is cut off ("The last l…").
 
 ## Untested
 - Hugging Face sign-in end to end, now that the page is back at the main address.
