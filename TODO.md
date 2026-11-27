@@ -62,6 +62,8 @@ Full notes: docs/matrix-views.md (the views, the kernel / eigendecomposition / P
   lab/ensemble.html here only redirects there, and the page is developed there; lab/ensemble*.js, data/ensemble/ and
   the test are left here unused. Its backend stays here: modal/app.py and modal/ensemble_lib.py, and the pools
   workflow, which commits pools to data/ensemble/ here; copy them to its data/ by hand.
+  Since 27 Nov, modal/ensemble_lib.py is the same file as lm-ensemble-demo's space/ensemble_lib.py (its Hugging Face
+  Space): proposals from a family of local ensembles, schema 3. Keep the two identical; change it there first.
 - Brief: docs/handoff-ensemble-demo.md. Built here as an unlinked lab page (lab/ensemble.html), to move
   to its own repository once it works.
 - Decided (Tim): Qwen3 14B (the GPU server's model); cached pools for the presets during development

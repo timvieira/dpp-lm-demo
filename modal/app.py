@@ -50,7 +50,11 @@ gpu_image = (
     # The ensemble prototype's pool code (plain PyTorch, shared with scripts/ensemble_pool.py).
     .add_local_file(pathlib.Path(__file__).parent / "ensemble_lib.py", "/root/ensemble_lib.py")
 )
-web_image = modal.Image.debian_slim(python_version="3.12").pip_install("fastapi[standard]")
+web_image = (
+    modal.Image.debian_slim(python_version="3.12").pip_install("fastapi[standard]")
+    # The ensemble endpoint checks the proposal's parameters with the pool code's own checks (pure Python at import).
+    .add_local_file(pathlib.Path(__file__).parent / "ensemble_lib.py", "/root/ensemble_lib.py")
+)
 
 
 def _month():
@@ -144,13 +148,13 @@ class Sampler:
         }
 
     @modal.method()
-    def ensemble_pool(self, preset, fmt, n, t_prime, max_new_tokens, seed):
-        """A pool for the ensemble prototype (modal/ensemble_lib.py; docs/handoff-ensemble-demo.md)."""
+    def ensemble_pool(self, preset, fmt, n, proposal, max_new_tokens, seed):
+        """A pool for the ensemble demo (lm-ensemble-demo), from a proposal of modal/ensemble_lib.py's family."""
         from ensemble_lib import ensemble_pool
         t0 = time.time()
         try:
-            return ensemble_pool(self.tok, self.model, preset, fmt, n=n, t_prime=t_prime, max_new_tokens=max_new_tokens,
-                                 seed=seed, model_name=MODEL_REPO)
+            return ensemble_pool(self.tok, self.model, preset, fmt, n=n, proposal=proposal,
+                                 max_new_tokens=max_new_tokens, seed=seed, model_name=MODEL_REPO)
         finally:
             dt = time.time() - t0
             self.charged += dt
@@ -187,12 +191,12 @@ class Gpt2Sampler:
         _charge(max(0.0, time.time() - self.started - self.charged), T4_DOLLARS_PER_SEC)
 
     @modal.method()
-    def ensemble_pool(self, preset, fmt, n, t_prime, max_new_tokens, seed):
+    def ensemble_pool(self, preset, fmt, n, proposal, max_new_tokens, seed):
         from ensemble_lib import ensemble_pool
         assert fmt == "text", "GPT-2 has no chat template"
         t0 = time.time()
         try:
-            return ensemble_pool(self.tok, self.model, preset, fmt, n=n, t_prime=t_prime,
+            return ensemble_pool(self.tok, self.model, preset, fmt, n=n, proposal=proposal,
                                  max_new_tokens=max_new_tokens, seed=seed, model_name=GPT2_REPO)
         finally:
             dt = time.time() - t0
@@ -415,9 +419,13 @@ def web():
 
     @api.post("/ensemble_sample")
     async def ensemble_endpoint(req: Request):
-        """The ensemble prototype (lab/ensemble.html): N completions from the token-level product of prompts A
-        and B, scored under A, B and (optional) C. Body: {model, format, prompts: {A, B, C?}, n, t_prime,
-        max_new_tokens, seed?}. Answer: the pool record of modal/ensemble_lib.py."""
+        """The ensemble demo (timvieira.github.io/lm-ensemble-demo): N completions from a proposal, a local
+        f-ensemble of prompts A and B, scored under A, B and (optional) C. Body: {model, format, prompts: {A, B, C?},
+        n, proposal: {tau, wA, weights, Tprime}, max_new_tokens, seed?} (tau: a number, "inf", "-inf" or a name;
+        weights: "prefix" or "fixed"; 0.1 ≤ Tprime ≤ 2). Pages from before 27 Nov 2026 send t_prime instead of
+        proposal: the product of A and B at the old temperature, (p_A p_B)^(1/t_prime) token by token, which is
+        tau 0 at Tprime = t_prime / 2. Answer: the pool record of modal/ensemble_lib.py (schema 3)."""
+        from ensemble_lib import check_proposal, tau_json
         user = await visitor(req)
         body = await body_of(req)
         key, fmt = str(body.get("model", MODEL_KEY)), str(body.get("format", "text"))
@@ -430,11 +438,29 @@ def web():
         if "A" not in prompts or "B" not in prompts or any(len(v) > 2000 for v in prompts.values()):
             raise Fail(400, "bad_request", "Prompts A and B are needed, each at most 2000 characters (C is optional).")
         try:
-            n, t_prime, max_new = int(body.get("n", 200)), float(body.get("t_prime", 1.0)), int(body.get("max_new_tokens", 32))
+            n, max_new = int(body.get("n", 200)), int(body.get("max_new_tokens", 32))
         except (TypeError, ValueError):
-            raise Fail(400, "bad_request", "n, t_prime and max_new_tokens must be numbers.")
-        if not (2 <= n <= MAX_N and 8 <= max_new <= MAX_TOKENS and 0.2 <= t_prime <= 2.0):
-            raise Fail(400, "bad_request", f"Allowed: 2 ≤ n ≤ {MAX_N}, 8 ≤ max_new_tokens ≤ {MAX_TOKENS}, 0.2 ≤ t_prime ≤ 2.")
+            raise Fail(400, "bad_request", "n and max_new_tokens must be numbers.")
+        if not (2 <= n <= MAX_N and 8 <= max_new <= MAX_TOKENS):
+            raise Fail(400, "bad_request", f"Allowed: 2 ≤ n ≤ {MAX_N}, 8 ≤ max_new_tokens ≤ {MAX_TOKENS}.")
+        if "proposal" in body:
+            if not isinstance(body["proposal"], dict):
+                raise Fail(400, "bad_request", "proposal must be an object {tau, wA, weights, Tprime}.")
+            raw = body["proposal"]
+        else:   # the older API
+            try:
+                t_prime = float(body.get("t_prime", 1.0))
+            except (TypeError, ValueError):
+                raise Fail(400, "bad_request", "t_prime must be a number.")
+            if not 0.2 <= t_prime <= 2.0:
+                raise Fail(400, "bad_request", "Allowed: 0.2 ≤ t_prime ≤ 2.")
+            raw = {"tau": 0.0, "wA": 0.5, "weights": "fixed", "Tprime": t_prime / 2}
+        try:
+            prop = check_proposal(raw)
+        except (TypeError, ValueError) as e:
+            raise Fail(400, "bad_request", f"proposal: {e}")
+        if not 0.1 <= prop["Tprime"] <= 2.0:
+            raise Fail(400, "bad_request", "Allowed: 0.1 ≤ Tprime ≤ 2.")
         day = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d")
         rkey = f"runs:{day}:{user}"
         runs = await usage.get.aio(rkey, 0)
@@ -442,10 +468,11 @@ def web():
             raise Fail(429, "rate_limit", f"You have used today's {RUNS_PER_USER_PER_DAY} runs. Please come back tomorrow.")
         await usage.put.aio(rkey, runs + 1)
         seed = int(body.get("seed", random.randrange(2**31)))
-        print(f"ensemble run by {user}: {key} {fmt} n={n} T'={t_prime} max={max_new}")
+        print(f"ensemble run by {user}: {key} {fmt} n={n} proposal tau'={tau_json(prop['tau'])} w_A={prop['wA']} "
+              f"{prop['weights']} T'={prop['Tprime']} max={max_new}")
         preset = {"id": "custom", "label": "", fmt: prompts}
         try:
-            return await ensemble_runner(key).ensemble_pool.remote.aio(preset, fmt, n, t_prime, max_new, seed)
+            return await ensemble_runner(key).ensemble_pool.remote.aio(preset, fmt, n, prop, max_new, seed)
         except Exception as e:
             raise Fail(500, "server", f"{type(e).__name__}: {e}")
 
@@ -489,11 +516,19 @@ def smoke():
 
 @app.local_entrypoint()
 def ensemble_cache(only: str = "", models: str = "qwen3-14b,gpt2", formats: str = "text,chat", n: int = 200,
-                   t_prime: float = 1.0, max_new_tokens: int = 32, seed: int = 0):
-    """Pools for the ensemble prototype: modal run modal/app.py::ensemble_cache [--only id,id] [--models ...]
+                   tau: str = "product", w_a: float = 0.5, weights: str = "prefix", tprime: float = 0.5,
+                   max_new_tokens: int = 32, seed: int = 0):
+    """Pools for the ensemble demo: modal run modal/app.py::ensemble_cache [--only id,id] [--models ...]
+    [--tau product --w-a 0.5 --weights prefix --tprime 0.5]
     Writes data/ensemble/<id>.<model>.<text|chat>.json for each preset in data/ensemble/presets.json, for every
-    format the model supports."""
+    format the model supports. The default proposal is the page's default (lm-ensemble-demo, DEFAULTS in
+    js/ensemble.js: the product at T' = ½, p_A · p_B token by token); the page uses a pool as cached only when its
+    settings match the pool's proposal. The pools are copied to lm-ensemble-demo's data/ by hand."""
     import json
+    import sys
+    sys.path.insert(0, str(pathlib.Path(__file__).parent))
+    from ensemble_lib import check_proposal
+    prop = check_proposal({"tau": tau, "wA": w_a, "weights": weights, "Tprime": tprime})
     root = pathlib.Path(__file__).parent.parent
     presets = json.load(open(root / "data/ensemble/presets.json"))
     want = {x for x in only.split(",") if x}
@@ -502,15 +537,14 @@ def ensemble_cache(only: str = "", models: str = "qwen3-14b,gpt2", formats: str 
             continue
         for key in [m for m in models.split(",") if m]:
             for fmt in [f for f in formats.split(",") if f in ENSEMBLE_MODELS[key][1]]:
-                rec = ensemble_runner(key).ensemble_pool.remote(p, fmt, n, t_prime, max_new_tokens, seed)
+                rec = ensemble_runner(key).ensemble_pool.remote(p, fmt, n, prop, max_new_tokens, seed)
                 rec["standIn"], rec["modelKey"] = False, key
                 path = root / "data/ensemble" / f"{p['id']}.{key}.{fmt}.json"
                 path.write_text(json.dumps(rec, ensure_ascii=False, separators=(",", ":")))
-                ended = sum(s["ended"] for s in rec["samples"])
                 ends = {}
                 for s_ in rec["samples"]:
-                    ends[s_.get("endToken") or s_["end"]] = ends.get(s_.get("endToken") or s_["end"], 0) + 1
-                print(f"{p['id']}.{key}.{fmt}: {rec['N']} samples ({ended} ended; {ends}), "
+                    ends[s_["end"]] = ends.get(s_["end"], 0) + 1
+                print(f"{p['id']}.{key}.{fmt}: {rec['N']} samples (ended by {ends}), "
                       f"check {rec['checkMaxAbsErr']:.2e} nats, {rec['timing']}")
                 # A bug shows up as whole nats; fp16 on the GPU gives ~0.1 between incremental and one-pass scoring.
                 assert rec["checkMaxAbsErr"] < 0.5, "sampling sums disagree with teacher-forced scores"

@@ -13,7 +13,7 @@ import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "modal"))
-from ensemble_lib import ensemble_pool  # noqa: E402
+from ensemble_lib import check_proposal, ensemble_pool  # noqa: E402
 
 
 def main():
@@ -22,7 +22,11 @@ def main():
     ap.add_argument("--presets", default=os.path.join(ROOT, "data/ensemble/presets.json"))
     ap.add_argument("--only", nargs="*", help="preset ids (default: all)")
     ap.add_argument("--n", type=int, default=200)
-    ap.add_argument("--tprime", type=float, default=1.0)
+    # The proposal (modal/ensemble_lib.py); the defaults are the page's: the product at T' = ½, p_A · p_B per token.
+    ap.add_argument("--tau", default="product")
+    ap.add_argument("--wA", type=float, default=0.5)
+    ap.add_argument("--weights", default="prefix", choices=["prefix", "fixed"])
+    ap.add_argument("--tprime", type=float, default=0.5)
     ap.add_argument("--max-new-tokens", type=int, default=32)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--formats", nargs="*", default=["text", "chat"])
@@ -35,19 +39,22 @@ def main():
     dev = "cuda" if torch.cuda.is_available() else "cpu"
     tok = AutoTokenizer.from_pretrained(args.model)
     model = AutoModelForCausalLM.from_pretrained(args.model, dtype=torch.float32).to(dev).eval()
+    prop = check_proposal({"tau": args.tau, "wA": args.wA, "weights": args.weights, "Tprime": args.tprime})
     presets = json.load(open(args.presets))
     for p in presets:
         if args.only and p["id"] not in args.only:
             continue
         for fmt in args.formats:
-            rec = ensemble_pool(tok, model, p, fmt, n=args.n, t_prime=args.tprime,
+            rec = ensemble_pool(tok, model, p, fmt, n=args.n, proposal=prop,
                                 max_new_tokens=args.max_new_tokens, seed=args.seed, model_name=args.model)
             rec["standIn"] = args.model != "Qwen/Qwen3-14B-AWQ"
             path = os.path.join(args.out, f"{p['id']}.{fmt}.json")
             with open(path, "w") as f:
                 json.dump(rec, f, ensure_ascii=False, separators=(",", ":"))
-            ended = sum(s["ended"] for s in rec["samples"])
-            print(f"{p['id']}.{fmt}: {rec['N']} samples ({ended} ended), check {rec['checkMaxAbsErr']:.2e} nats, "
+            ends = {}
+            for s in rec["samples"]:
+                ends[s["end"]] = ends.get(s["end"], 0) + 1
+            print(f"{p['id']}.{fmt}: {rec['N']} samples (ended by {ends}), check {rec['checkMaxAbsErr']:.2e} nats, "
                   f"{rec['timing']} -> {os.path.relpath(path, ROOT)}", flush=True)
 
 
